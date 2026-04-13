@@ -49,14 +49,32 @@ function getCurrentTime24h(): string {
 
 async function fetchTodayTokens(): Promise<OpdToken[]> {
   const today = todayString()
-  return fetchWithFallback(
-    async () => {
-      const { data, error } = await supabase.from('opd_tokens').select('*').eq('date', today).order('created_at', { ascending: false })
-      if (error) throw error
-      return data as OpdToken[]
-    },
-    () => db.opd_tokens.where('date').equals(today).reverse().toArray() as unknown as Promise<OpdToken[]>,
-  )
+  // Always load Dexie first — it has everything (synced + pending).
+  // Then overlay any Supabase records that may not be in Dexie yet.
+  const dexieTokens = await db.opd_tokens
+    .where('date').equals(today)
+    .reverse().toArray() as unknown as OpdToken[]
+
+  if (!navigator.onLine) return dexieTokens
+
+  try {
+    const { data, error } = await Promise.race([
+      supabase.from('opd_tokens').select('*').eq('date', today).order('created_at', { ascending: false }),
+      new Promise<never>((_, r) => setTimeout(() => r(new Error('timeout')), 3000)),
+    ]) as { data: OpdToken[] | null; error: unknown }
+    if (error || !data) return dexieTokens
+
+    // Merge: start with Supabase records, then add any Dexie-only records
+    // (those whose server_id is null — not yet synced).
+    const supabaseIds = new Set(data.map((t) => t.id))
+    const dexieOnly = dexieTokens.filter(
+      (t) => !(t as unknown as { server_id: string | null }).server_id ||
+              !supabaseIds.has((t as unknown as { server_id: string }).server_id)
+    )
+    return [...dexieOnly, ...data]
+  } catch {
+    return dexieTokens
+  }
 }
 
 async function fetchDoctors(): Promise<Doctor[]> {
@@ -211,11 +229,6 @@ export function OpdPage() {
               type: record.type,
               booking_source: record.booking_source,
               notes: record.notes,
-              bp: record.bp,
-              pulse: record.pulse,
-              temp: record.temp,
-              spo2: record.spo2,
-              rr: record.rr,
               created_at: record.created_at,
             }).select().single()
             const { data: saved, error } = await Promise.race([insert, timeout]) as { data: { id: string } | null; error: unknown }
