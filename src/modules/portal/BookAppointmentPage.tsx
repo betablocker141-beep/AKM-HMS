@@ -94,6 +94,30 @@ const DOCTOR_TIMING_CONFIG: DoctorTimingConfig[] = [
     days: 'Daily',
     slots: ['Evening: 09:00 PM', 'Evening: 09:30 PM'],
   },
+  {
+    match: 'shafique',
+    timings: '8 PM – 8 AM (Night Duty)',
+    days: 'Daily',
+    slots: [
+      'Evening: 08:00 PM', 'Evening: 08:30 PM', 'Evening: 09:00 PM', 'Evening: 09:30 PM',
+      'Evening: 10:00 PM', 'Evening: 10:30 PM', 'Evening: 11:00 PM', 'Evening: 11:30 PM',
+      'Night: 12:00 AM', 'Night: 12:30 AM', 'Night: 01:00 AM', 'Night: 01:30 AM',
+    ],
+    note: 'Available through the night until 8 AM',
+  },
+  {
+    match: 'waseem akram',
+    timings: '8 AM – 8 PM',
+    days: 'Mon–Sat (Closed Sunday)',
+    slots: [
+      'Morning: 08:00 AM', 'Morning: 08:30 AM', 'Morning: 09:00 AM', 'Morning: 09:30 AM',
+      'Morning: 10:00 AM', 'Morning: 10:30 AM', 'Morning: 11:00 AM', 'Morning: 11:30 AM',
+      'Noon: 12:00 PM', 'Noon: 12:30 PM', 'Noon: 01:00 PM', 'Noon: 01:30 PM',
+      'Noon: 02:00 PM', 'Noon: 02:30 PM', 'Noon: 03:00 PM', 'Noon: 03:30 PM',
+      'Evening: 04:00 PM', 'Evening: 04:30 PM', 'Evening: 05:00 PM', 'Evening: 05:30 PM',
+      'Evening: 06:00 PM', 'Evening: 06:30 PM', 'Evening: 07:00 PM', 'Evening: 07:30 PM',
+    ],
+  },
 ]
 
 // All slots shown when no specific doctor is selected
@@ -234,6 +258,32 @@ export function BookAppointmentPage() {
         <p className="text-white/70 text-sm mt-1">Green Town, Lahore, Pakistan</p>
         <p className="text-white/90 font-semibold mt-1">Book an Appointment</p>
       </header>
+
+      {/* Emergency 24/7 Banner */}
+      <div className="max-w-xl mx-auto px-4 pt-6">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg">
+          <div className="absolute inset-0 opacity-10"
+            style={{ backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)', backgroundSize: '8px 8px' }}
+          />
+          <div className="relative flex items-center gap-4 px-5 py-4">
+            <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl animate-pulse">
+              🚨
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-lg leading-tight">Emergency — Available 24/7</p>
+              <p className="text-white/85 text-sm mt-0.5">
+                For emergencies, do not book online — walk in or call immediately.
+              </p>
+            </div>
+            <a
+              href={`tel:${hospitalPhone}`}
+              className="flex-shrink-0 bg-white text-red-600 font-bold text-sm px-4 py-2 rounded-xl hover:bg-red-50 transition-colors shadow"
+            >
+              Call Now
+            </a>
+          </div>
+        </div>
+      </div>
 
       {/* Our Doctors */}
       {doctors.length > 0 && (

@@ -102,7 +102,7 @@ export function OpdTokenPrint({ token, patient, doctor, fee, size = 'thermal' }:
               {token.temp != null && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Temp:</span>
-                  <span className="font-medium">{token.temp} °C</span>
+                  <span className="font-medium">{token.temp} °F</span>
                 </div>
               )}
               {token.spo2 != null && (

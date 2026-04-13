@@ -10,7 +10,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { WAButton } from '@/components/shared/WAButton'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { supabase } from '@/lib/supabase/client'
-import { formatDate, padNumber } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import {
   waBookingConfirmedPatient,
   waBookingConfirmedDoctor,
@@ -43,6 +43,8 @@ export function BookingsPage() {
   const [rejectId, setRejectId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [confirmedAction, setConfirmedAction] = useState<ConfirmedAction | null>(null)
+  const [tokenInputBooking, setTokenInputBooking] = useState<OnlineBooking | null>(null)
+  const [manualToken, setManualToken] = useState('')
   const qc = useQueryClient()
 
   const { data: bookings = [], isLoading } = useQuery({ queryKey: ['online-bookings'], queryFn: fetchBookings, refetchInterval: 30_000 })
@@ -51,27 +53,18 @@ export function BookingsPage() {
   const filtered = filter === 'all' ? bookings : bookings.filter((b) => b.status === filter)
 
   const confirmMutation = useMutation({
-    mutationFn: async (booking: OnlineBooking) => {
-      // Generate a booking reference number (BK-01, BK-02…)
-      // Real OPD token is created at reception when the patient physically arrives.
-      const { count } = await supabase
-        .from('online_bookings')
-        .select('*', { count: 'exact', head: true })
-        .eq('preferred_date', booking.preferred_date)
-        .eq('status', 'confirmed')
-      const tokenNumber = `BK-${padNumber((count ?? 0) + 1)}`
-
-      // Mark booking as confirmed
+    mutationFn: async ({ booking, tokenNumber }: { booking: OnlineBooking; tokenNumber: string }) => {
       const { error } = await supabase
         .from('online_bookings')
         .update({ status: 'confirmed' })
         .eq('id', booking.id)
       if (error) throw error
-
       return { booking, tokenNumber, doctor: doctors.find((d) => d.id === booking.doctor_id) }
     },
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['online-bookings'] })
+      setTokenInputBooking(null)
+      setManualToken('')
       setConfirmedAction(result)
     },
     onError: (err) => {
@@ -160,11 +153,10 @@ export function BookingsPage() {
                   {booking.status === 'pending' && (
                     <div className="flex flex-col gap-2 flex-shrink-0">
                       <button
-                        onClick={() => confirmMutation.mutate(booking)}
-                        disabled={confirmMutation.isPending}
-                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                        onClick={() => { setTokenInputBooking(booking); setManualToken('') }}
+                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
                       >
-                        <Check className="w-4 h-4" /> Confirm Token
+                        <Check className="w-4 h-4" /> Assign Token
                       </button>
                       <button
                         onClick={() => setRejectId(booking.id)}
@@ -178,6 +170,51 @@ export function BookingsPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Manual token assignment modal */}
+      {tokenInputBooking && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl p-6">
+            <h2 className="font-semibold text-gray-800 mb-1">Assign Token Number</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Enter the token number for <strong>{tokenInputBooking.patient_name}</strong>. Reception decides the number based on current queue.
+            </p>
+            <input
+              type="text"
+              value={manualToken}
+              onChange={(e) => setManualToken(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && manualToken.trim()) {
+                  confirmMutation.mutate({ booking: tokenInputBooking, tokenNumber: manualToken.trim() })
+                }
+              }}
+              autoFocus
+              placeholder="e.g. 5  or  A-12  or  OPD-07"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 mb-4 text-center text-lg font-bold tracking-widest"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setTokenInputBooking(null); setManualToken('') }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (manualToken.trim()) {
+                    confirmMutation.mutate({ booking: tokenInputBooking, tokenNumber: manualToken.trim() })
+                  }
+                }}
+                disabled={!manualToken.trim() || confirmMutation.isPending}
+                className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                <Check className="w-4 h-4" />
+                {confirmMutation.isPending ? 'Confirming...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
