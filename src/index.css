@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 45 33% 97%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 0 100% 27%;       /* #8B0000 maroon */
+    --primary-foreground: 45 33% 97%;
+    --secondary: 45 20% 96%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 45 20% 93%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 43 65% 52%;        /* #D4AF37 gold */
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 0 100% 27%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold;
+  }
+}
+
+/* ─── Print Styles ─────────────────────────────────── */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .sidebar,
+  .navbar,
+  .top-bar {
+    display: none !important;
+  }
+}
+
+/* ─── Thermal 80mm print ───────────────────────────── */
+@media print and (max-width: 80mm) {
+  .thermal-receipt {
+    width: 80mm;
+    font-size: 10pt;
+  }
+}
+
+/* ─── Custom scrollbar ─────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-muted;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground rounded-full opacity-50;
+}
+
+/* ─── Urdu text ─────────────────────────────────────── */
+.urdu {
+  font-family: 'Noto Nastaliq Urdu', serif;
+  direction: rtl;
+  text-align: right;
+}
+
+/* ─── Triage badge colors ───────────────────────────── */
+.triage-1 { @apply bg-red-600 text-white; }
+.triage-2 { @apply bg-orange-500 text-white; }
+.triage-3 { @apply bg-yellow-500 text-black; }
+.triage-4 { @apply bg-green-600 text-white; }
+.triage-5 { @apply bg-blue-600 text-white; }
+
+/* ─── AKM Brand ─────────────────────────────────────── */
+.akm-header {
+  @apply bg-maroon-500 text-white;
+}
+.akm-divider {
+  border-top: 2px solid #8B0000;
+}
+.akm-gold-divider {
+  border-top: 2px solid #D4AF37;
+}
+
+/* ─── Offline banner ────────────────────────────────── */
+.offline-banner {
+  @apply bg-amber-500 text-amber-950 text-center py-1.5 text-sm font-medium;
+}
+
+/* ─── Token display ─────────────────────────────────── */
+.token-display {
+  @apply text-6xl font-bold text-maroon-500 tabular-nums;
+}
+
+/* ─── Bed grid ──────────────────────────────────────── */
+.bed-available {
+  @apply bg-green-50 border-2 border-green-500 text-green-700 cursor-pointer hover:bg-green-100 transition-colors;
+}
+.bed-occupied {
+  @apply bg-red-50 border-2 border-red-400 text-red-600 cursor-not-allowed;
+}
+.bed-selected {
+  @apply bg-maroon-500 border-2 border-maroon-700 text-white;
+}

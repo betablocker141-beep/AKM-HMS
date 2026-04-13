@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="48" fill="#8B0000" stroke="#D4AF37" stroke-width="3"/>
+  <text x="50" y="40" text-anchor="middle" font-family="Inter, sans-serif" font-size="22" font-weight="700" fill="#D4AF37">AKM</text>
+  <text x="50" y="62" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#F5F5F0">MEDICARE</text>
+  <line x1="20" y1="68" x2="80" y2="68" stroke="#D4AF37" stroke-width="1.5"/>
+  <text x="50" y="80" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#F5F5F0">GREEN TOWN, LAHORE</text>
+</svg>
