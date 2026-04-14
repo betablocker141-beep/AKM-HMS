@@ -1,15 +1,16 @@
 import { AKMLogo } from '@/components/shared/AKMLogo'
-import { formatDate } from '@/lib/utils'
-import type { ErVisit } from '@/types'
+import { formatDate, calculateAge } from '@/lib/utils'
+import type { ErVisit, Patient } from '@/types'
 import { TRIAGE_LABELS } from '@/types/er'
 
 interface ErTokenPrintProps {
   visit: ErVisit
+  patient?: Patient
   moName?: string
   fee?: number
 }
 
-export function ErTokenPrint({ visit, moName, fee }: ErTokenPrintProps) {
+export function ErTokenPrint({ visit, patient, moName, fee }: ErTokenPrintProps) {
   const hospitalPhone = import.meta.env.VITE_HOSPITAL_PHONE || '042-35977450'
   const hospitalAddress = import.meta.env.VITE_HOSPITAL_ADDRESS || '362-6-C2, Green Town, Lahore'
   const triageColors: Record<number, string> = {
@@ -54,6 +55,22 @@ export function ErTokenPrint({ visit, moName, fee }: ErTokenPrintProps) {
       <div className="border-t border-dashed border-gray-300 my-3" />
 
       <div className="space-y-1.5 text-xs">
+        {patient && (
+          <>
+            <div className="flex justify-between">
+              <span className="text-gray-500 font-medium">Patient:</span>
+              <span className="text-right font-semibold">{patient.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500 font-medium">MRN:</span>
+              <span>{patient.mrn}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500 font-medium">Age / Gender:</span>
+              <span>{calculateAge(patient.dob)} / {patient.gender}</span>
+            </div>
+          </>
+        )}
         <div className="flex justify-between">
           <span className="text-gray-500 font-medium">Date:</span>
           <span>{formatDate(visit.visit_date)}</span>

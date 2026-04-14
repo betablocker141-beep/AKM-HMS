@@ -38,6 +38,21 @@ const TABLE_EXCLUDE_FIELDS: Partial<Record<SyncableTable, Set<string>>> = {
   opd_tokens: new Set(['bp', 'pulse', 'temp', 'spo2', 'rr']),
 }
 
+// Tables that contain a patient_id FK — must resolve local UUID → server UUID before push.
+const TABLES_WITH_PATIENT_ID = new Set<SyncableTable>([
+  'ultrasound_reports', 'invoices', 'opd_tokens', 'er_visits',
+  'ipd_admissions', 'birth_certificates', 'death_certificates', 'online_bookings',
+])
+
+/** Resolve a patient_id that may be a local UUID to its Supabase server UUID. */
+async function resolvePatientId(localOrServerId: string): Promise<string> {
+  if (!localOrServerId) return localOrServerId
+  const pat = await db.patients
+    .filter((p) => p.local_id === localOrServerId || p.server_id === localOrServerId)
+    .first()
+  return pat?.server_id ?? localOrServerId
+}
+
 // Tables that have NO created_at column in Supabase — must NOT use created_at ordering.
 // Pulling these without ordering/limit fetches all rows (fine for small reference tables).
 const TABLES_WITHOUT_CREATED_AT = new Set<SyncableTable>(['doctors'])
@@ -48,7 +63,8 @@ const TABLES_WITHOUT_CREATED_AT = new Set<SyncableTable>(['doctors'])
 // Excluded: date-windowed tables (opd_tokens, er_visits) — we only pull 60 days
 // so older records should NOT be removed from local storage.
 const CLEANUP_AFTER_PULL = new Set<SyncableTable>([
-  'ultrasound_reports',
+  // NOTE: 'ultrasound_reports' intentionally excluded — local reports must never
+  // be auto-deleted even if a Supabase SELECT returns 0 rows (e.g. policy lag).
   'patients',
   'doctors',
   'invoices',
@@ -81,9 +97,14 @@ async function syncTable(tableName: SyncableTable) {
       const { local_id, sync_status, server_id, id: _id, ...rest } = record
       // Also remove any fields that exist in Dexie but have no column in Supabase
       const excludeFields = TABLE_EXCLUDE_FIELDS[tableName]
-      const serverRecord = excludeFields
+      let serverRecord = excludeFields
         ? Object.fromEntries(Object.entries(rest).filter(([k]) => !excludeFields.has(k)))
-        : rest
+        : { ...rest }
+
+      // Resolve patient_id local UUID → Supabase server UUID to avoid FK violations
+      if (TABLES_WITH_PATIENT_ID.has(tableName) && serverRecord.patient_id) {
+        serverRecord.patient_id = await resolvePatientId(serverRecord.patient_id as string)
+      }
 
       if (record.server_id) {
         // Update existing record

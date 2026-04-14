@@ -8,38 +8,50 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { supabase } from '@/lib/supabase/client'
 import { db } from '@/lib/dexie/schema'
 import { formatDate } from '@/lib/utils'
-import { fetchWithFallback } from '@/lib/utils/fetchWithFallback'
 import { useSyncStore } from '@/store/syncStore'
 import type { UltrasoundReport, Patient } from '@/types'
 
 async function fetchReports(): Promise<UltrasoundReport[]> {
-  return fetchWithFallback(
-    async () => {
-      const { data, error } = await supabase
-        .from('ultrasound_reports')
-        .select('*')
-        .order('study_date', { ascending: false })
-        .limit(500)
-      if (error) throw error
-      const online = (data ?? []) as UltrasoundReport[]
+  // ── Dexie is PRIMARY — always show every record saved locally ────────────
+  // This prevents the "saved then disappears on sync" bug: when the sync engine
+  // pushes a record and marks it 'synced', a subsequent Supabase SELECT that
+  // returns 0 rows (RLS lag, network blip) would otherwise wipe the list.
+  const allLocal = await db.ultrasound_reports
+    .orderBy('study_date').reverse().toArray()
 
-      // Merge in pending/conflict local reports not yet pushed to Supabase
-      const unsynced = await db.ultrasound_reports
-        .where('sync_status').anyOf('pending', 'conflict').toArray()
-      const onlineIds = new Set(online.map((r) => r.id))
-      const onlyLocal = unsynced.filter(
-        (r) => !onlineIds.has(r.server_id ?? '') && !onlineIds.has(r.local_id ?? '')
-      )
-      return [...online, ...(onlyLocal as unknown as UltrasoundReport[])]
-    },
-    async () => {
-      // Offline: show confirmed records + anything not yet pushed (pending or conflict)
-      const all = await db.ultrasound_reports.orderBy('study_date').reverse().toArray()
-      return all.filter(
-        (r) => r.server_id || r.sync_status === 'pending' || r.sync_status === 'conflict'
-      ) as unknown as UltrasoundReport[]
-    },
-  )
+  // ── Supabase is ADDITIVE — only used to pull records from other devices ──
+  if (!navigator.onLine) {
+    return allLocal as unknown as UltrasoundReport[]
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('ultrasound_reports')
+      .select('*')
+      .order('study_date', { ascending: false })
+      .limit(500)
+
+    if (error || !data || data.length === 0) {
+      return allLocal as unknown as UltrasoundReport[]
+    }
+
+    // IDs already represented in Dexie (by server_id or local_id)
+    const localRefs = new Set<string>([
+      ...allLocal.map((r) => r.server_id).filter((s): s is string => !!s),
+      ...allLocal.map((r) => r.local_id),
+    ])
+
+    // Only add Supabase records that are NOT already in Dexie
+    // (i.e. records created on another device / browser)
+    const fromServerOnly = (data as UltrasoundReport[]).filter(
+      (r) => !localRefs.has(r.id)
+    )
+
+    return [...allLocal, ...fromServerOnly] as UltrasoundReport[]
+  } catch {
+    // Network error — fall back to Dexie only
+    return allLocal as unknown as UltrasoundReport[]
+  }
 }
 
 export function UltrasoundPage() {
@@ -50,6 +62,8 @@ export function UltrasoundPage() {
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['us-reports'],
     queryFn: fetchReports,
+    staleTime: 30_000,       // don't refetch for 30 s — prevents "flicker then gone"
+    refetchOnWindowFocus: false,
   })
 
   // Patient map for name lookup in list

@@ -305,11 +305,19 @@ export function InvoicingPage() {
         if (online) {
           void (async () => {
             try {
+              // Resolve patient UUID: offline-selected patients use local_id
+              // which isn't a valid FK in Supabase — must use server_id
+              let serverPatientId = record.patient_id
+              const localPat = await db.patients
+                .filter((p) => p.local_id === record.patient_id || p.server_id === record.patient_id)
+                .first()
+              if (localPat?.server_id) serverPatientId = localPat.server_id
+
               const timeout = new Promise<never>((_, reject) =>
                 setTimeout(() => reject(new Error('timeout')), 6000)
               )
               const insert = supabase.from('invoices').insert({
-                patient_id: record.patient_id,
+                patient_id: serverPatientId,
                 doctor_id: record.doctor_id,
                 visit_type: record.visit_type,
                 visit_ref_id: record.visit_ref_id,
@@ -332,7 +340,7 @@ export function InvoicingPage() {
               if (!error && saved) {
                 await db.invoices.where('local_id').equals(localId).modify({ server_id: saved.id, sync_status: 'synced' })
               }
-            } catch { /* stays pending */ }
+            } catch (err) { console.error('[invoice] Supabase insert failed, kept as pending:', err) }
           })()
         }
 

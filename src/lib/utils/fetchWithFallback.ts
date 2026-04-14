@@ -9,8 +9,8 @@
 
 let _supabaseDown = false
 let _supabaseDownSince = 0
-const CIRCUIT_RESET_MS = 30_000
-const DEFAULT_TIMEOUT_MS = 2_000
+const CIRCUIT_RESET_MS = 60_000
+const DEFAULT_TIMEOUT_MS = 8_000
 
 /** Call this when Supabase is confirmed reachable (e.g. after a successful sync) */
 export function markSupabaseOnline() {

@@ -65,6 +65,7 @@ export function ReportEditorPage() {
   const [patientSearch, setPatientSearch] = useState('')
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [unlocked, setUnlocked] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const { data: patientResults = [] } = useQuery({
     queryKey: ['us-patient-search', patientSearch],
@@ -170,6 +171,19 @@ export function ReportEditorPage() {
     mutationFn: async ({ data, finalize }: { data: ReportForm; finalize?: boolean }) => {
       const reportStatus: 'draft' | 'final' = finalize ? 'final' : (existing?.status === 'final' && unlocked ? 'final' : 'draft')
 
+      // ── Resolve patient UUID ─────────────────────────────────────────────────
+      // When a patient is selected from offline search their id is the local UUID
+      // (Dexie primary key). Supabase only knows the server UUID → FK violation.
+      // Always look up the Dexie record and prefer server_id for Supabase calls.
+      let supabasePatientId = data.patient_id
+      const localPatientRow = await db.patients
+        .filter((p) => p.local_id === data.patient_id || p.server_id === data.patient_id)
+        .first()
+      if (localPatientRow?.server_id) {
+        supabasePatientId = localPatientRow.server_id
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       const fields = {
         patient_id: data.patient_id,
         study_type: data.study_type as UsStudyType,
@@ -187,8 +201,8 @@ export function ReportEditorPage() {
         husbands_father_name: null as string | null,
       }
 
-      // Only valid Supabase columns
-      const supabasePayload = { ...fields }
+      // Only valid Supabase columns — use resolved server UUID for patient_id
+      const supabasePayload = { ...fields, patient_id: supabasePatientId }
 
       if (id) {
         // --- UPDATE existing report ---
@@ -207,7 +221,9 @@ export function ReportEditorPage() {
             .select()
             .single()
           if (error) {
-            console.error('[us] Supabase update failed, kept as pending:', error.message)
+            const msg = `Supabase update error — ${error.message} (code: ${error.code ?? 'n/a'}${error.hint ? ' | hint: ' + error.hint : ''})`
+            console.error('[us]', msg, error)
+            setSaveError(msg)
           } else if (saved) {
             await db.ultrasound_reports
               .filter((r) => r.local_id === id || r.server_id === id)
@@ -245,7 +261,9 @@ export function ReportEditorPage() {
           if (error) {
             // Leave the local draft intact so the sync engine can retry —
             // DO NOT delete it (that was losing reports entirely).
-            console.error('[us] Supabase insert failed, kept as pending:', error.message)
+            const msg = `Supabase insert error — ${error.message} (code: ${error.code ?? 'n/a'}${error.hint ? ' | hint: ' + error.hint : ''})`
+            console.error('[us]', msg, error)
+            setSaveError(msg)
           } else if (saved) {
             await db.ultrasound_reports
               .where('local_id')
@@ -334,8 +352,20 @@ export function ReportEditorPage() {
         </div>
       )}
 
+      {saveError && (
+        <div className="mb-4 flex items-start gap-3 bg-red-50 border border-red-300 text-red-800 px-4 py-3 rounded-lg text-sm">
+          <span className="font-semibold shrink-0">⚠ Save failed (report kept locally):</span>
+          <span className="break-all">{saveError}</span>
+          <button
+            type="button"
+            onClick={() => setSaveError(null)}
+            className="ml-auto shrink-0 text-red-400 hover:text-red-600 text-lg leading-none"
+          >×</button>
+        </div>
+      )}
+
       <form
-        onSubmit={handleSubmit((d) => saveMutation.mutate({ data: d }))}
+        onSubmit={handleSubmit((d) => { setSaveError(null); saveMutation.mutate({ data: d }) })}
         className="space-y-6"
       >
         {/* Top fields */}
@@ -544,7 +574,7 @@ export function ReportEditorPage() {
             {canFinalize && (
               <button
                 type="button"
-                onClick={handleSubmit((d) => saveMutation.mutate({ data: d, finalize: true }))}
+                onClick={handleSubmit((d) => { setSaveError(null); saveMutation.mutate({ data: d, finalize: true }) })}
                 disabled={saveMutation.isPending}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
               >
