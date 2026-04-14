@@ -159,6 +159,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   paid_amount     NUMERIC(12,2) NOT NULL DEFAULT 0,
   payment_method  TEXT CHECK (payment_method IN ('cash','card','bank_transfer','jazzcash','easypaisa')),
   status          TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','partial','paid')),
+  doctor_id       UUID REFERENCES doctors(id),
   invoice_number  TEXT NOT NULL UNIQUE,
   receipt_no      TEXT,
   notes           TEXT,

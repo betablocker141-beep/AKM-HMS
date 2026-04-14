@@ -14,6 +14,7 @@ export interface InvoiceItem {
 export interface Invoice {
   id: string
   patient_id: string
+  doctor_id: string | null
   visit_type: VisitType
   visit_ref_id: string | null
   items: InvoiceItem[]

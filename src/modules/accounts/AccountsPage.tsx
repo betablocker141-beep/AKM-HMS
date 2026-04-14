@@ -200,40 +200,26 @@ async function fetchPaidSet(month: number, year: number): Promise<Set<string>> {
 
 function computeEarnings(
   invoices: Invoice[],
-  opdTokens: OpdToken[],
-  erVisits: ErVisit[],
-  ipdAdmissions: IpdAdmission[],
+  _opdTokens: OpdToken[],
+  _erVisits: ErVisit[],
+  _ipdAdmissions: IpdAdmission[],
   doctors: Doctor[],
   paidSet: Set<string>,
 ): ComputedEarning[] {
-  const opdMap = new Map<string, string>()
-  opdTokens.forEach(t => { if (t.doctor_id) opdMap.set(`${t.patient_id}:${t.date}`, t.doctor_id) })
-
-  const erMap = new Map<string, string>()
-  erVisits.forEach(v => { if (v.doctor_id) erMap.set(`${v.patient_id}:${v.visit_date}`, v.doctor_id) })
-
-  const ipdMap = new Map<string, string>()
-  ipdAdmissions.forEach(a => { if (a.admitting_doctor_id) ipdMap.set(a.patient_id, a.admitting_doctor_id) })
-
   const totals = new Map<string, { opd: number; er: number; ipd: number; us: number }>()
   doctors.forEach(d => totals.set(d.id, { opd: 0, er: 0, ipd: 0, us: 0 }))
 
   invoices.forEach(inv => {
-    const date   = inv.created_at.substring(0, 10)
+    // Use doctor_id stored directly on the invoice (reliable direct link)
+    const docId = (inv as Invoice & { doctor_id?: string | null }).doctor_id
+    if (!docId || !totals.has(docId)) return
+
     const amount = inv.paid_amount > 0 ? inv.paid_amount : (inv.total ?? 0)
-    let docId: string | undefined
-
-    if (inv.visit_type === 'opd')      docId = opdMap.get(`${inv.patient_id}:${date}`)
-    else if (inv.visit_type === 'er')  docId = erMap.get(`${inv.patient_id}:${date}`)
-    else if (inv.visit_type === 'ipd') docId = ipdMap.get(inv.patient_id)
-
-    if (docId && totals.has(docId)) {
-      const b = totals.get(docId)!
-      if      (inv.visit_type === 'opd') b.opd += amount
-      else if (inv.visit_type === 'er')  b.er  += amount
-      else if (inv.visit_type === 'ipd') b.ipd += amount
-      else if (inv.visit_type === 'us')  b.us  += amount
-    }
+    const b = totals.get(docId)!
+    if      (inv.visit_type === 'opd') b.opd += amount
+    else if (inv.visit_type === 'er')  b.er  += amount
+    else if (inv.visit_type === 'ipd') b.ipd += amount
+    else if (inv.visit_type === 'us')  b.us  += amount
   })
 
   return doctors

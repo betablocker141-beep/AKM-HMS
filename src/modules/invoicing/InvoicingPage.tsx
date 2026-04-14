@@ -4,7 +4,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useReactToPrint } from 'react-to-print'
-import { Plus, Printer, Trash2, Receipt, Search, FileText, Pencil, UserCircle } from 'lucide-react'
+import { Plus, Printer, Trash2, Receipt, Search, FileText, Pencil, UserCircle, Stethoscope } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { WAButton } from '@/components/shared/WAButton'
@@ -18,7 +18,8 @@ import { fetchWithFallback } from '@/lib/utils/fetchWithFallback'
 import { useSyncStore } from '@/store/syncStore'
 import { useAuthStore } from '@/store/authStore'
 import { waInvoiceReady } from '@/lib/whatsapp/links'
-import type { Invoice, InvoiceItem, Patient } from '@/types'
+import { fetchActiveDoctors } from '@/lib/utils/doctorUtils'
+import type { Invoice, InvoiceItem, Patient, Doctor } from '@/types'
 
 const itemSchema = z.object({
   description: z.string().min(1, 'Required'),
@@ -30,6 +31,7 @@ const invoiceSchema = z.object({
   patient_id: z.string().min(1, 'Patient required'),
   patient_phone: z.string().optional(),
   visit_type: z.enum(['opd', 'er', 'ipd', 'us']),
+  doctor_id: z.string().optional(),
   items: z.array(itemSchema).min(1, 'At least one item required'),
   discount: z.coerce.number().min(0).max(100000),
   discount_type: z.enum(['amount', 'percent']),
@@ -107,6 +109,11 @@ export function InvoicingPage() {
     queryFn: fetchInvoices,
   })
 
+  const { data: doctors = [] } = useQuery<Doctor[]>({
+    queryKey: ['doctors-active'],
+    queryFn: fetchActiveDoctors,
+  })
+
   // Patient map for name + phone lookup in list
   const { data: patientsMap = {} } = useQuery<Record<string, { name: string; phone: string }>>({
     queryKey: ['patients-map-full'],
@@ -148,6 +155,7 @@ export function InvoicingPage() {
   const watchedDiscountType = watch('discount_type')
   const watchedPaid = watch('paid_amount')
   const watchedMethod = watch('payment_method')
+  const watchedVisitType = watch('visit_type')
 
   const subtotal = watchedItems.reduce(
     (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unit_price) || 0),
@@ -178,6 +186,7 @@ export function InvoicingPage() {
     // Pre-fill form fields
     setValue('patient_id', inv.patient_id)
     setValue('visit_type', inv.visit_type)
+    setValue('doctor_id', inv.doctor_id ?? '')
     setValue('discount', inv.discount)
     setValue('discount_type', inv.discount_type as 'amount' | 'percent')
     setValue('payment_method', inv.payment_method as 'cash' | 'card' | 'bank_transfer' | 'jazzcash' | 'easypaisa')
@@ -224,6 +233,7 @@ export function InvoicingPage() {
 
         const updates = {
           patient_id: data.patient_id,
+          doctor_id: data.doctor_id || null,
           visit_type: data.visit_type,
           items,
           subtotal,
@@ -268,6 +278,7 @@ export function InvoicingPage() {
           local_id: localId,
           server_id: null,
           patient_id: data.patient_id,
+          doctor_id: data.doctor_id || null,
           visit_type: data.visit_type,
           visit_ref_id: null,
           items,
@@ -299,6 +310,7 @@ export function InvoicingPage() {
               )
               const insert = supabase.from('invoices').insert({
                 patient_id: record.patient_id,
+                doctor_id: record.doctor_id,
                 visit_type: record.visit_type,
                 visit_ref_id: record.visit_ref_id,
                 items: record.items,
@@ -578,6 +590,25 @@ export function InvoicingPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Attending Doctor — shown for OPD / ER / IPD so earnings are computed correctly */}
+              {(watchedVisitType === 'opd' || watchedVisitType === 'er' || watchedVisitType === 'ipd') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+                    <Stethoscope className="w-3.5 h-3.5 text-maroon-500" />
+                    Attending Doctor
+                  </label>
+                  <select
+                    {...register('doctor_id')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500"
+                  >
+                    <option value="">— Select doctor (optional) —</option>
+                    {doctors.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name} — {d.specialty}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Receipt No — shown for online/bank payments */}
               {(watchedMethod === 'jazzcash' || watchedMethod === 'easypaisa' || watchedMethod === 'bank_transfer') && (
