@@ -49,26 +49,36 @@ export function UltrasoundReportPrint({
   })
 
   const studyTitle = getStudyTitle(report.study_type)
-  const LR = '14mm'  // left / right padding
+  const LR = '14mm'
+
+  /*
+   * LAYOUT STRATEGY
+   * ───────────────
+   * Outer wrapper: position:relative, height:297mm (exact A4), overflow:hidden
+   *   - Prevents content from spilling to page 2.
+   *
+   * Footer: position:absolute, bottom:0
+   *   - Pinned to page bottom regardless of flex/block browser behaviour in print.
+   *   - Does NOT depend on flex:1 expanding siblings.
+   *
+   * Content area: padding-bottom:24mm reserves space for the footer so
+   *   body text never slides under the absolutely-positioned footer.
+   *
+   * This approach avoids the "blank space below footer" problem that
+   * occurs when flex:1 body expansion fails in some browser print engines.
+   */
 
   return (
     <>
-      {/*
-        Embed @page directly in the component so it is ALWAYS present
-        when this component renders — no reliance on index.css load order.
-        Forces A4, removes browser margins.
-      */}
+      {/* @page must be in <head> for some browsers; the <style> here is
+          also copied into the react-to-print iframe and works in Chrome/Edge. */}
       <style dangerouslySetInnerHTML={{ __html: `
         @page { size: A4 portrait; margin: 0; }
+        @media print {
+          html, body { margin: 0 !important; padding: 0 !important; }
+        }
       `}} />
 
-      {/*
-        Outer wrapper:
-        • width  = 210mm  (A4 width)
-        • height = 297mm  (A4 height — FIXED so flex: 1 children work)
-        • overflow: hidden prevents any content spilling to page 2
-        All layout is inline — no CSS class order issues.
-      */}
       <div
         className="print-area"
         style={{
@@ -80,77 +90,70 @@ export function UltrasoundReportPrint({
           fontSize: '10pt',
           color: '#111',
           boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
+          position: 'relative',
           overflow: 'hidden',
         }}
       >
-        {/* ── 1. Maroon top bar — full width ─────────────── */}
-        <div style={{ background: '#8B0000', height: '7px', flexShrink: 0 }} />
 
-        {/* ── 2. Letterhead ──────────────────────────────── */}
+        {/* ── 1. Maroon top bar ───────────────────────────── */}
+        <div style={{ background: '#8B0000', height: '7px' }} />
+
+        {/* ── 2. Letterhead ─────────────────────────────────
+              Logo on left; hospital name + contact on right.
+              The row fills the full content width (210mm − 2×LR).
+        */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          padding: `7mm ${LR} 5mm ${LR}`,
-          flexShrink: 0,
-          gap: '16px',
+          padding: `6mm ${LR} 4mm ${LR}`,
+          gap: '14px',
+          width: '100%',
+          boxSizing: 'border-box',
         }}>
-          {/* Logo */}
           <div style={{ flexShrink: 0 }}>
-            <AKMLogo size={76} />
+            <AKMLogo size={72} />
           </div>
-
-          {/* Hospital name + address — fills the full remaining width */}
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
               fontStyle: 'italic',
               fontWeight: 'bold',
-              fontSize: '22pt',
+              fontSize: '21pt',
               lineHeight: 1.1,
               color: '#8B0000',
-              marginBottom: '4px',
+              marginBottom: '3px',
             }}>
               Alim Khatoon Medicare
             </div>
-            <div style={{ fontSize: '9pt', color: '#444', lineHeight: 1.55 }}>
+            <div style={{ fontSize: '8.5pt', color: '#444', lineHeight: 1.5 }}>
               {hospitalAddress}
             </div>
-            <div style={{ fontSize: '9pt', color: '#444', lineHeight: 1.55 }}>
+            <div style={{ fontSize: '8.5pt', color: '#444', lineHeight: 1.5 }}>
               Tel:&nbsp;{hospitalPhone}&nbsp;&nbsp;|&nbsp;&nbsp;Email:&nbsp;{hospitalEmail}
             </div>
           </div>
         </div>
 
-        {/* ── 3. Full-width double-rule separator ─────────── */}
-        <div style={{ padding: `0 ${LR}`, flexShrink: 0 }}>
+        {/* ── 3. Double-rule separator ───────────────────── */}
+        <div style={{ padding: `0 ${LR}`, marginBottom: '4mm' }}>
           <div style={{ borderTop: '3px solid #8B0000' }} />
-          <div style={{ borderTop: '1px solid #D4AF37', marginTop: '2px', marginBottom: '5mm' }} />
+          <div style={{ borderTop: '1px solid #D4AF37', marginTop: '2px' }} />
         </div>
 
-        {/* ── 4. Body — fills all remaining height ─────────── */}
-        {/*
-          flex: 1           → takes all space between header and footer
-          display: flex     → inner column layout
-          flexDirection: column
-          overflow: hidden  → clips overflowing text instead of making page 2
-        */}
+        {/* ── 4. Body content — padding-bottom reserves space for the
+              absolute footer (footer height ≈ 22mm) ─────────── */}
         <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
           padding: `0 ${LR}`,
-          overflow: 'hidden',
+          paddingBottom: '24mm',
+          boxSizing: 'border-box',
         }}>
 
           {/* Patient info box */}
           <div style={{
             border: '1px solid #999',
             padding: '5px 10px',
-            marginBottom: '7px',
+            marginBottom: '6px',
             fontSize: '9.5pt',
             lineHeight: 1.55,
-            flexShrink: 0,
           }}>
             <div style={{ display: 'flex', gap: '20px' }}>
               <div style={{ flex: 1 }}>
@@ -174,31 +177,25 @@ export function UltrasoundReportPrint({
           </div>
 
           {/* Study title */}
-          <div style={{ textAlign: 'center', marginBottom: '8px', flexShrink: 0 }}>
+          <div style={{ textAlign: 'center', marginBottom: '7px' }}>
             <span style={{ fontWeight: 'bold', textDecoration: 'underline', fontSize: '11pt' }}>
               {studyTitle}
             </span>
           </div>
 
-          {/*
-            Findings section — flex: 1 makes it grow to fill all
-            remaining vertical space between the title and the conclusion.
-            This is what pushes the footer to the bottom of the page.
-          */}
+          {/* Findings */}
           <div style={{
-            flex: 1,
             whiteSpace: 'pre-wrap',
             fontSize: '10pt',
             lineHeight: 1.65,
             marginBottom: '8px',
-            overflow: 'hidden',
           }}>
             {report.findings}
           </div>
 
           {/* Conclusion */}
           {report.impression && (
-            <div style={{ marginBottom: '8px', flexShrink: 0 }}>
+            <div style={{ marginBottom: '8px' }}>
               <div style={{ fontWeight: 'bold', textDecoration: 'underline', fontSize: '10.5pt', marginBottom: '3px' }}>
                 CONCLUSION
               </div>
@@ -210,7 +207,7 @@ export function UltrasoundReportPrint({
 
           {/* History */}
           {report.history && (
-            <div style={{ marginBottom: '6px', fontSize: '10pt', flexShrink: 0 }}>
+            <div style={{ marginBottom: '6px', fontSize: '10pt' }}>
               <strong>*History: </strong>
               <span style={{ whiteSpace: 'pre-wrap' }}>{report.history}</span>
             </div>
@@ -218,7 +215,7 @@ export function UltrasoundReportPrint({
 
           {/* Presenting complaints */}
           {report.presenting_complaints && (
-            <div style={{ marginBottom: '6px', fontSize: '10pt', flexShrink: 0 }}>
+            <div style={{ marginBottom: '6px', fontSize: '10pt' }}>
               <strong>*Presenting Complaints: </strong>
               <span style={{ whiteSpace: 'pre-wrap' }}>{report.presenting_complaints}</span>
             </div>
@@ -226,14 +223,14 @@ export function UltrasoundReportPrint({
 
           {/* Prescription */}
           {report.prescription && (
-            <div style={{ marginBottom: '6px', fontSize: '10pt', flexShrink: 0 }}>
+            <div style={{ marginBottom: '6px', fontSize: '10pt' }}>
               <strong>*Prescription: </strong>
               <span style={{ whiteSpace: 'pre-wrap' }}>{report.prescription}</span>
             </div>
           )}
 
-          {/* Signature line */}
-          <div style={{ marginTop: '16px', marginBottom: '6px', fontSize: '10pt', flexShrink: 0 }}>
+          {/* Signature */}
+          <div style={{ marginTop: '16px', marginBottom: '4px', fontSize: '10pt' }}>
             <strong>Dr. Name: </strong>
             <span style={{ borderBottom: '1px solid #555', paddingBottom: '1px', minWidth: '160px', display: 'inline-block' }}>
               {radiologistName ?? ''}
@@ -242,23 +239,29 @@ export function UltrasoundReportPrint({
 
           {/* Printed by */}
           {printedBy && (
-            <div style={{ fontSize: '8pt', color: '#666', marginBottom: '4px', flexShrink: 0 }}>
+            <div style={{ fontSize: '8pt', color: '#666', marginBottom: '2px' }}>
               <strong>Printed By:</strong> {printedBy} &nbsp;({printDateTime})
             </div>
           )}
+
         </div>
 
-        {/* ── 5. Footer — pinned to page bottom by flex column ─ */}
+        {/* ── 5. Footer — position:absolute pins it to page bottom ──
+              This works even if flex:1 expansion fails in print engines.
+        */}
         <div style={{
-          flexShrink: 0,
+          position: 'absolute',
+          bottom: 0,
+          left: LR,
+          right: LR,
           borderTop: '1px solid #8B0000',
-          margin: `6px ${LR} 0 ${LR}`,
           paddingTop: '4px',
           paddingBottom: '7mm',
           textAlign: 'center',
           fontSize: '7.5pt',
           color: '#666',
           lineHeight: 1.5,
+          background: '#fff',
         }}>
           <div>This report is not for medicolegal proceedings and not valid for any court of law.</div>
           <div>Expert opinion from a Radiologist is required for medicolegal cases.</div>

@@ -105,22 +105,47 @@ export function ReportEditorPage() {
     },
   })
 
-  // Populate form when editing
+  // Populate form when editing — also reload patient so the patient block
+  // shows correctly after navigate() remounts the component on first save.
   useEffect(() => {
-    if (existing) {
-      setValue('patient_id', existing.patient_id)
-      setValue('study_type', existing.study_type)
-      setValue('study_date', existing.study_date)
-      setValue('referring_doctor', existing.referring_doctor ?? '')
-      setValue('findings', existing.findings)
-      setValue('impression', existing.impression)
-      setValue('recommendations', existing.recommendations ?? '')
-      setValue('history', existing.history ?? '')
-      setValue('presenting_complaints', existing.presenting_complaints ?? '')
-      setValue('prescription', existing.prescription ?? '')
-      setCurrentReport(existing)
+    if (!existing) return
+    setValue('patient_id', existing.patient_id)
+    setValue('study_type', existing.study_type)
+    setValue('study_date', existing.study_date)
+    setValue('referring_doctor', existing.referring_doctor ?? '')
+    setValue('findings', existing.findings)
+    setValue('impression', existing.impression)
+    setValue('recommendations', existing.recommendations ?? '')
+    setValue('history', existing.history ?? '')
+    setValue('presenting_complaints', existing.presenting_complaints ?? '')
+    setValue('prescription', existing.prescription ?? '')
+    setCurrentReport(existing)
+
+    // Reload the patient so it shows in the patient info block
+    // (selectedPatient is reset when the component re-mounts after navigate)
+    if (!selectedPatient) {
+      ;(async () => {
+        const { isOnline: online } = useSyncStore.getState()
+        let found: Patient | undefined
+        if (online) {
+          const { data } = await supabase
+            .from('patients')
+            .select('*')
+            .eq('id', existing.patient_id)
+            .single()
+          if (data) found = data as Patient
+        }
+        if (!found) {
+          const local = await db.patients
+            .filter((p) => p.server_id === existing.patient_id || p.local_id === existing.patient_id)
+            .first()
+          if (local) found = local as unknown as Patient
+        }
+        if (found) setSelectedPatient(found)
+      })()
     }
-  }, [existing, setValue])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existing?.id])
 
   const studyType = watch('study_type') as UsStudyType
 
