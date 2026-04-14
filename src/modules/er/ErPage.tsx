@@ -94,6 +94,7 @@ export function ErPage() {
   const [erFee, setErFee] = useState<number>(0)
   const [printMoName, setPrintMoName] = useState('Dr. Waseem')
   const [printFee, setPrintFee] = useState<number>(0)
+  const [printPatient, setPrintPatient] = useState<Patient | null>(null)
   const [erPatientSearch, setErPatientSearch] = useState('')
   const [erSelectedPatient, setErSelectedPatient] = useState<Patient | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
@@ -209,6 +210,7 @@ export function ErPage() {
       setSelectedVisit(record as unknown as ErVisit)
       setPrintMoName(erMoName)
       setPrintFee(erFee)
+      setPrintPatient(erSelectedPatient)
       setShowPrintModal(true)
       reset()
       setErFee(0)
@@ -217,6 +219,17 @@ export function ErPage() {
       setShowForm(false)
     },
   })
+
+  const handleReprintVisit = async (visit: ErVisit) => {
+    const patient = await db.patients
+      .filter((p) => p.local_id === visit.patient_id || p.server_id === visit.patient_id || p.id === visit.patient_id)
+      .first() as unknown as Patient | undefined
+    setPrintPatient(patient ?? null)
+    setSelectedVisit(visit)
+    setPrintMoName(erMoName)
+    setPrintFee(0)
+    setShowPrintModal(true)
+  }
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -333,7 +346,7 @@ export function ErPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => { setSelectedVisit(visit); setShowPrintModal(true) }}
+                            onClick={() => handleReprintVisit(visit)}
                             className="p-1.5 text-gray-500 hover:text-orange-500 hover:bg-orange-50 rounded"
                           >
                             <Printer className="w-4 h-4" />
@@ -618,7 +631,7 @@ export function ErPage() {
             <div className="overflow-y-auto flex-1">
               <div className="p-4">
                 <div ref={printRef}>
-                  <ErTokenPrint visit={selectedVisit} moName={printMoName} fee={printFee} />
+                  <ErTokenPrint visit={selectedVisit} patient={printPatient ?? undefined} moName={printMoName} fee={printFee} />
                 </div>
               </div>
             </div>
@@ -634,7 +647,7 @@ export function ErPage() {
               {familyPhone && (
                 <WAButton
                   href={waErRegistration({
-                    patientName: 'Patient',
+                    patientName: printPatient?.name ?? 'Patient',
                     tokenNumber: selectedVisit.token_number,
                     familyPhone,
                   })}

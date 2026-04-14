@@ -104,6 +104,22 @@ export function IpdPage() {
     queryFn: fetchDoctors,
   })
 
+  // Patient name lookup map
+  const { data: patientsMap = {} } = useQuery<Record<string, string>>({
+    queryKey: ['patients-map'],
+    queryFn: () => fetchWithFallback(
+      async () => {
+        const { data, error } = await supabase.from('patients').select('id, name')
+        if (error) throw error
+        return Object.fromEntries((data ?? []).map((p: { id: string; name: string }) => [p.id, p.name])) as Record<string, string>
+      },
+      async () => {
+        const all = await db.patients.toArray()
+        return Object.fromEntries(all.map((p) => [p.local_id, p.name])) as Record<string, string>
+      },
+    ),
+  })
+
   const { data: patientResults = [] } = useQuery({
     queryKey: ['ipd-patient-search', patientSearch],
     queryFn: () => searchPatients(patientSearch),
@@ -294,7 +310,7 @@ export function IpdPage() {
                   return (
                     <tr key={adm.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-800 font-medium">
-                        {adm.patient_id.slice(0, 8)}…
+                        {patientsMap[adm.patient_id] ?? `${adm.patient_id.slice(0, 8)}…`}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {adm.ward} / <strong>{adm.bed_number}</strong>
@@ -314,11 +330,11 @@ export function IpdPage() {
                           </button>
                           <WAButton
                             href={waIpdAdmission({
-                              patientName: adm.patient_id,
+                              patientName: patientsMap[adm.patient_id] ?? 'Patient',
                               ward: adm.ward,
                               bed: adm.bed_number,
                               admitDate: formatDate(adm.admit_date),
-                              phone: '03000000000',
+                              phone: patientPhone || '03000000000',
                             })}
                             label="Notify"
                             size="sm"
@@ -491,7 +507,7 @@ export function IpdPage() {
               </button>
               <WAButton
                 href={waIpdDischarge({
-                  patientName: selectedAdmission.patient_id,
+                  patientName: patientsMap[selectedAdmission.patient_id] ?? 'Patient',
                   dischargeDate: formatDate(todayString()),
                   phone: patientPhone || '03000000000',
                 })}

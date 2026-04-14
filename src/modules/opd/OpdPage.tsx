@@ -143,6 +143,22 @@ export function OpdPage() {
     queryFn: fetchDoctors,
   })
 
+  // Patient name lookup map for the token list
+  const { data: patientsMap = {} } = useQuery<Record<string, string>>({
+    queryKey: ['patients-map'],
+    queryFn: () => fetchWithFallback(
+      async () => {
+        const { data, error } = await supabase.from('patients').select('id, name')
+        if (error) throw error
+        return Object.fromEntries((data ?? []).map((p: { id: string; name: string }) => [p.id, p.name])) as Record<string, string>
+      },
+      async () => {
+        const all = await db.patients.toArray()
+        return Object.fromEntries(all.map((p) => [p.local_id, p.name])) as Record<string, string>
+      },
+    ),
+  })
+
   const { data: patientResults = [] } = useQuery({
     queryKey: ['patient-search', patientSearch],
     queryFn: () => fetchPatients(patientSearch),
@@ -356,7 +372,7 @@ export function OpdPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-800">
-                        {token.patient_id.slice(0, 8)}…
+                        {patientsMap[token.patient_id] ?? `${token.patient_id.slice(0, 8)}…`}
                       </td>
                       <td className="px-4 py-3 text-gray-600">{doc?.name ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{token.time_slot}</td>
@@ -535,7 +551,6 @@ export function OpdPage() {
                   <input
                     {...register('date')}
                     type="date"
-                    min={todayString()}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500"
                   />
                   {errors.date && (

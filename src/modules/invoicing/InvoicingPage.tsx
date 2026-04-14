@@ -107,18 +107,18 @@ export function InvoicingPage() {
     queryFn: fetchInvoices,
   })
 
-  // Patient map for name lookup in list
-  const { data: patientsMap = {} } = useQuery<Record<string, string>>({
-    queryKey: ['patients-map'],
+  // Patient map for name + phone lookup in list
+  const { data: patientsMap = {} } = useQuery<Record<string, { name: string; phone: string }>>({
+    queryKey: ['patients-map-full'],
     queryFn: () => fetchWithFallback(
       async () => {
-        const { data, error } = await supabase.from('patients').select('id, name')
+        const { data, error } = await supabase.from('patients').select('id, name, phone')
         if (error) throw error
-        return Object.fromEntries((data ?? []).map((p: { id: string; name: string }) => [p.id, p.name])) as Record<string, string>
+        return Object.fromEntries((data ?? []).map((p: { id: string; name: string; phone: string }) => [p.id, { name: p.name, phone: p.phone }])) as Record<string, { name: string; phone: string }>
       },
       async () => {
         const all = await db.patients.toArray()
-        return Object.fromEntries(all.map((p) => [p.local_id, p.name])) as Record<string, string>
+        return Object.fromEntries(all.map((p) => [p.local_id, { name: p.name, phone: p.phone }])) as Record<string, { name: string; phone: string }>
       },
     ),
   })
@@ -193,9 +193,10 @@ export function InvoicingPage() {
       : [{ description: 'Consultation Fee', quantity: 1, unit_price: 500 }]
     setValue('items', items)
     // Set patient display name if available
-    const name = patientsMap[inv.patient_id]
+    const entry = patientsMap[inv.patient_id]
+    const name = entry?.name
     if (name) {
-      setSelectedPatient({ id: inv.patient_id, name } as Patient)
+      setSelectedPatient({ id: inv.patient_id, name, phone: entry.phone } as Patient)
     } else {
       setSelectedPatient(null)
     }
@@ -243,7 +244,9 @@ export function InvoicingPage() {
           await supabase.from('invoices').update(updates).eq('id', editingId)
         }
 
-        const existing = await db.invoices.get(editingId)
+        const existing = await db.invoices
+          .filter((inv) => inv.local_id === editingId || inv.server_id === editingId)
+          .first()
         setPatientPhone(data.patient_phone || selectedPatient?.phone || '')
         return existing as unknown as Invoice
       } else {
@@ -396,12 +399,14 @@ export function InvoicingPage() {
             <tbody className="divide-y divide-gray-100">
               {invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-12 text-gray-400">No invoices yet.</td>
+                  <td colSpan={10} className="text-center py-12 text-gray-400">No invoices yet.</td>
                 </tr>
               ) : (
                 invoices.map((inv) => {
                   const bal = inv.total - inv.paid_amount
-                  const patientName = patientsMap[inv.patient_id] ?? `${inv.patient_id.slice(0, 8)}…`
+                  const patientEntry = patientsMap[inv.patient_id]
+                  const patientName = patientEntry?.name ?? `${inv.patient_id.slice(0, 8)}…`
+                  const patientPhone = patientEntry?.phone ?? ''
                   return (
                     <tr key={inv.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-mono font-medium text-maroon-600">{inv.invoice_number}</td>
@@ -461,7 +466,7 @@ export function InvoicingPage() {
                               patientName: patientName,
                               invoiceNumber: inv.invoice_number,
                               total: inv.total,
-                              phone: '03000000000',
+                              phone: patientPhone,
                             })}
                             label=""
                             size="sm"
@@ -729,9 +734,9 @@ export function InvoicingPage() {
             <div className="p-4">
               <div ref={printRef}>
                 {printMode === 'invoice' ? (
-                  <InvoicePrint invoice={selectedInvoice} patientName={printPatient?.name ?? patientsMap[selectedInvoice.patient_id]} patientMrn={printPatient?.mrn} />
+                  <InvoicePrint invoice={selectedInvoice} patientName={printPatient?.name ?? patientsMap[selectedInvoice.patient_id]?.name} patientMrn={printPatient?.mrn} />
                 ) : (
-                  <ReceiptPrint invoice={selectedInvoice} patientName={printPatient?.name ?? patientsMap[selectedInvoice.patient_id]} patientMrn={printPatient?.mrn} />
+                  <ReceiptPrint invoice={selectedInvoice} patientName={printPatient?.name ?? patientsMap[selectedInvoice.patient_id]?.name} patientMrn={printPatient?.mrn} />
                 )}
               </div>
             </div>
@@ -748,10 +753,10 @@ export function InvoicingPage() {
               </button>
               <WAButton
                 href={waInvoiceReady({
-                  patientName: printPatient?.name ?? patientsMap[selectedInvoice.patient_id] ?? selectedInvoice.patient_id,
+                  patientName: printPatient?.name ?? patientsMap[selectedInvoice.patient_id]?.name ?? 'Patient',
                   invoiceNumber: selectedInvoice.invoice_number,
                   total: selectedInvoice.total,
-                  phone: patientPhone || printPatient?.phone || '03000000000',
+                  phone: patientPhone || printPatient?.phone || patientsMap[selectedInvoice.patient_id]?.phone || '',
                 })}
                 label="Send on WhatsApp"
               />
