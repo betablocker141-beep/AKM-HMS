@@ -77,12 +77,19 @@ export function ReportEditorPage() {
     queryFn: async () => {
       if (!id) return null
       const { isOnline: online } = useSyncStore.getState()
-      if (!online) {
-        const r = await db.ultrasound_reports.filter((rep) => rep.local_id === id || rep.server_id === id).first()
-        return r as unknown as UltrasoundReport | undefined
+      // Always try Dexie first — works offline and catches locally-saved pending records
+      const local = await db.ultrasound_reports
+        .filter((rep) => rep.local_id === id || rep.server_id === id)
+        .first()
+      if (!online) return local as unknown as UltrasoundReport | undefined
+      // Online: fetch from Supabase, fall back to Dexie if not found there
+      try {
+        const { data, error } = await supabase.from('ultrasound_reports').select('*').eq('id', id).single()
+        if (error || !data) return local as unknown as UltrasoundReport | undefined
+        return data as UltrasoundReport
+      } catch {
+        return local as unknown as UltrasoundReport | undefined
       }
-      const { data } = await supabase.from('ultrasound_reports').select('*').eq('id', id).single()
-      return data as UltrasoundReport | null
     },
     enabled: !!id,
   })
@@ -136,58 +143,85 @@ export function ReportEditorPage() {
 
   const saveMutation = useMutation({
     mutationFn: async ({ data, finalize }: { data: ReportForm; finalize?: boolean }) => {
-      const localId = id ?? generateUUID()
-      const record: UltrasoundReport & { local_id: string; server_id: string | null; sync_status: 'pending' } = {
-        id: localId,
-        local_id: localId,
-        server_id: null as string | null,
+      const reportStatus: 'draft' | 'final' = finalize ? 'final' : (existing?.status === 'final' && unlocked ? 'final' : 'draft')
+
+      const fields = {
         patient_id: data.patient_id,
         study_type: data.study_type as UsStudyType,
         study_date: data.study_date,
         referring_doctor: data.referring_doctor || null,
-        radiologist_id: null,
+        radiologist_id: null as string | null,
         findings: data.findings,
         impression: data.impression,
         recommendations: data.recommendations || null,
-        images_urls: [],
-        // Keep 'final' if the report was already final and we're just editing it
-        status: finalize ? 'final' : (existing?.status === 'final' && unlocked ? 'final' : 'draft'),
+        images_urls: [] as string[],
+        status: reportStatus,
         history: data.history || null,
         presenting_complaints: data.presenting_complaints || null,
         prescription: data.prescription || null,
-        husbands_father_name: null,
-        created_at: new Date().toISOString(),
-        sync_status: 'pending',
+        husbands_father_name: null as string | null,
       }
 
-      await db.ultrasound_reports.put(record)
+      // Only valid Supabase columns
+      const supabasePayload = { ...fields }
 
-      // Only valid Supabase columns — strip local_id, server_id, sync_status
-      const supabasePayload = {
-        patient_id: record.patient_id,
-        study_type: record.study_type,
-        study_date: record.study_date,
-        referring_doctor: record.referring_doctor,
-        radiologist_id: record.radiologist_id,
-        findings: record.findings,
-        impression: record.impression,
-        recommendations: record.recommendations,
-        images_urls: record.images_urls,
-        status: record.status,
-        history: record.history,
-        presenting_complaints: record.presenting_complaints,
-        prescription: record.prescription,
-        husbands_father_name: record.husbands_father_name,
-        created_at: record.created_at,
-      }
+      if (id) {
+        // --- UPDATE existing report ---
+        // Preserve images_urls from the existing record — don't overwrite with []
+        const { images_urls: _unused, ...fieldsWithoutImages } = fields
+        await db.ultrasound_reports
+          .filter((r) => r.local_id === id || r.server_id === id)
+          .modify({ ...fieldsWithoutImages, sync_status: 'pending' })
 
-      if (useSyncStore.getState().isOnline && navigator.onLine) {
-        try {
-          const { data: saved, error } = id
-            ? await supabase.from('ultrasound_reports').update(supabasePayload).eq('id', id).select().single()
-            : await supabase.from('ultrasound_reports').insert(supabasePayload).select().single()
+        if (useSyncStore.getState().isOnline && navigator.onLine) {
+          const { images_urls: _imgs, ...updatePayload } = supabasePayload
+          const { data: saved, error } = await supabase
+            .from('ultrasound_reports')
+            .update(updatePayload)
+            .eq('id', id)
+            .select()
+            .single()
+          if (error) throw new Error(error.message)
+          if (saved) {
+            await db.ultrasound_reports
+              .filter((r) => r.local_id === id || r.server_id === id)
+              .modify({ server_id: saved.id, sync_status: 'synced' })
+            setCurrentReport(saved as UltrasoundReport)
+            return saved as UltrasoundReport
+          }
+        }
 
-          if (!error && saved) {
+        const updated = await db.ultrasound_reports
+          .filter((r) => r.local_id === id || r.server_id === id)
+          .first()
+        setCurrentReport(updated as unknown as UltrasoundReport)
+        return updated as unknown as UltrasoundReport
+      } else {
+        // --- INSERT new report ---
+        const localId = generateUUID()
+        const record = {
+          id: localId,
+          local_id: localId,
+          server_id: null as string | null,
+          ...fields,
+          created_at: new Date().toISOString(),
+          sync_status: 'pending' as const,
+        }
+
+        await db.ultrasound_reports.put(record)
+
+        if (useSyncStore.getState().isOnline && navigator.onLine) {
+          const { data: saved, error } = await supabase
+            .from('ultrasound_reports')
+            .insert(supabasePayload)
+            .select()
+            .single()
+          if (error) {
+            // Remove the local draft so we don't have orphaned records
+            await db.ultrasound_reports.where('local_id').equals(localId).delete()
+            throw new Error(error.message)
+          }
+          if (saved) {
             await db.ultrasound_reports
               .where('local_id')
               .equals(localId)
@@ -195,16 +229,22 @@ export function ReportEditorPage() {
             setCurrentReport(saved as UltrasoundReport)
             return saved as UltrasoundReport
           }
-        } catch {
-          // Network failed — stays pending, syncs later
         }
-      }
 
-      setCurrentReport(record as unknown as UltrasoundReport)
-      return record as unknown as UltrasoundReport
+        setCurrentReport(record as unknown as UltrasoundReport)
+        return record as unknown as UltrasoundReport
+      }
     },
-    onSuccess: () => {
+    onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: ['us-reports'] })
+      // After creating a new report, navigate to its edit URL so subsequent
+      // saves update the same record instead of creating duplicates.
+      if (!id && saved?.id) {
+        navigate(`/ultrasound/${saved.id}/edit`)
+      }
+    },
+    onError: (err: Error) => {
+      alert(`Save failed: ${err.message}\n\nPlease try again or contact support.`)
     },
   })
 

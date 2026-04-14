@@ -132,8 +132,12 @@ CREATE TABLE IF NOT EXISTS ultrasound_reports (
   recommendations   TEXT,
   images_urls       TEXT[] DEFAULT '{}',
   status            TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','final')),
-  obstetric_data    JSONB,
-  created_at        TIMESTAMPTZ DEFAULT NOW()
+  obstetric_data         JSONB,
+  history                TEXT,
+  presenting_complaints  TEXT,
+  prescription           TEXT,
+  husbands_father_name   TEXT,
+  created_at             TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_us_patient ON ultrasound_reports(patient_id);
 CREATE INDEX IF NOT EXISTS idx_us_date    ON ultrasound_reports(study_date);
