@@ -18,36 +18,44 @@ export function ErTokenPrint({ visit, patient, moName, fee }: ErTokenPrintProps)
   return (
     <div
       className="print-area bg-white font-sans"
-      style={{ width: '72mm', padding: '3mm', border: '1px solid #e5e7eb', borderRadius: '4px', fontSize: '9pt' }}
+      style={{
+        width: '76mm',
+        minHeight: '55mm',
+        padding: '3mm 4mm',
+        border: '1px solid #e5e7eb',
+        borderRadius: '4px',
+        fontSize: '10pt',
+        boxSizing: 'border-box',
+      }}
     >
       {/* Header */}
       <div className="text-center pb-1.5 mb-1.5" style={{ borderBottom: '2px solid #EA580C' }}>
-        <p className="font-bold leading-tight" style={{ color: '#EA580C', fontSize: '10pt' }}>
+        <p className="font-bold leading-tight" style={{ color: '#EA580C', fontSize: '12pt' }}>
           ALIM KHATOON MEDICARE
         </p>
-        <p style={{ fontSize: '7pt', color: '#EA580C', fontWeight: 600 }}>── EMERGENCY ──</p>
+        <p style={{ fontSize: '8.5pt', color: '#EA580C', fontWeight: 600 }}>── EMERGENCY ──</p>
       </div>
 
       {/* Triage badge */}
       <div
         className="text-center text-white font-bold rounded mb-1.5"
-        style={{ backgroundColor: triageColors[visit.triage_level], fontSize: '8pt', padding: '2px 0' }}
+        style={{ backgroundColor: triageColors[visit.triage_level], fontSize: '9pt', padding: '2px 0' }}
       >
         TRIAGE L{visit.triage_level} — {TRIAGE_LABELS[visit.triage_level as 1|2|3|4|5].split(' ')[0].toUpperCase()}
       </div>
 
       {/* Token number */}
       <div className="text-center my-1">
-        <p style={{ fontSize: '7pt', color: '#888', textTransform: 'uppercase', letterSpacing: '0.08em' }}>ER Token</p>
-        <p className="font-bold leading-none mt-0.5" style={{ fontSize: '28pt', color: '#EA580C' }}>
+        <p style={{ fontSize: '8pt', color: '#888', textTransform: 'uppercase', letterSpacing: '0.08em' }}>ER Token</p>
+        <p className="font-bold leading-none mt-0.5" style={{ fontSize: '30pt', color: '#EA580C' }}>
           {visit.token_number}
         </p>
       </div>
 
-      <div style={{ borderTop: '1px dashed #ccc', margin: '4px 0' }} />
+      <div style={{ borderTop: '1px dashed #ccc', margin: '3px 0' }} />
 
       {/* Details */}
-      <div style={{ lineHeight: 1.45 }}>
+      <div style={{ lineHeight: 1.5 }}>
         {patient && (
           <>
             <Row label="Patient" value={patient.name} bold />
@@ -60,13 +68,13 @@ export function ErTokenPrint({ visit, patient, moName, fee }: ErTokenPrintProps)
         {moName && <Row label="MO" value={moName} />}
       </div>
 
-      <div style={{ borderTop: '1px dashed #ccc', margin: '4px 0' }} />
+      <div style={{ borderTop: '1px dashed #ccc', margin: '3px 0' }} />
 
       {/* Payment */}
       {fee !== undefined && fee > 0 && (
         <>
           <div style={{ background: '#fff7ed', border: '1px solid #EA580C', borderRadius: '3px', padding: '3px 6px', marginBottom: '4px' }}>
-            <div className="flex justify-between items-center" style={{ fontSize: '9pt', fontWeight: 700, color: '#9a3412' }}>
+            <div className="flex justify-between items-center" style={{ fontSize: '10pt', fontWeight: 700, color: '#9a3412' }}>
               <span>✔ PAID</span>
               <span>Rs. {fee.toLocaleString()}</span>
             </div>
@@ -75,7 +83,7 @@ export function ErTokenPrint({ visit, patient, moName, fee }: ErTokenPrintProps)
       )}
 
       {/* Footer */}
-      <div className="text-center" style={{ fontSize: '7.5pt', color: '#666' }}>
+      <div className="text-center" style={{ fontSize: '8.5pt', color: '#666' }}>
         <p style={{ color: '#EA580C', fontWeight: 600 }}>EMERGENCY — Please wait</p>
         <p>Tel: {hospitalPhone}</p>
         <p style={{ color: '#aaa' }}>
@@ -88,7 +96,7 @@ export function ErTokenPrint({ visit, patient, moName, fee }: ErTokenPrintProps)
 
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
-    <div className="flex justify-between gap-1" style={{ fontSize: '8.5pt' }}>
+    <div className="flex justify-between gap-1" style={{ fontSize: '9.5pt' }}>
       <span style={{ color: bold ? '#374151' : '#6b7280', fontWeight: bold ? 600 : 500, flexShrink: 0 }}>{label}:</span>
       <span style={{ color: bold ? '#111827' : '#1f2937', fontWeight: bold ? 600 : 400, textAlign: 'right' }}>{value}</span>
     </div>

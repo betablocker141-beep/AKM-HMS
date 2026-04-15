@@ -22,23 +22,30 @@ export function ReceiptPrint({ invoice, patientName, patientMrn }: ReceiptPrintP
   return (
     <div
       className="print-area bg-white font-sans"
-      style={{ width: '80mm', padding: '5mm', fontFamily: 'Inter, sans-serif', fontSize: '9pt' }}
+      style={{
+        width: '76mm',
+        minHeight: '55mm',
+        padding: '3mm 4mm',
+        fontFamily: 'Inter, sans-serif',
+        fontSize: '10pt',
+        boxSizing: 'border-box',
+      }}
     >
       {/* Header */}
-      <div style={{ textAlign: 'center', borderBottom: '1.5px solid #8B0000', paddingBottom: '8px', marginBottom: '8px' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
-          <AKMLogo size={36} />
+      <div style={{ textAlign: 'center', borderBottom: '1.5px solid #8B0000', paddingBottom: '6px', marginBottom: '6px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '3px' }}>
+          <AKMLogo size={34} />
         </div>
-        <p style={{ fontWeight: 700, color: '#8B0000', fontSize: '11pt', margin: 0 }}>ALIM KHATOON MEDICARE</p>
-        <p style={{ fontSize: '7.5pt', color: '#555', margin: '2px 0' }}>{hospitalAddress}</p>
-        <p style={{ fontSize: '7.5pt', color: '#555', margin: 0 }}>Tel: {hospitalPhone}</p>
-        <div style={{ marginTop: '6px', background: '#8B0000', color: 'white', padding: '3px 0', borderRadius: '3px', fontWeight: 700, fontSize: '10pt', letterSpacing: '1px' }}>
+        <p style={{ fontWeight: 700, color: '#8B0000', fontSize: '12pt', margin: 0 }}>ALIM KHATOON MEDICARE</p>
+        <p style={{ fontSize: '8.5pt', color: '#555', margin: '2px 0' }}>{hospitalAddress}</p>
+        <p style={{ fontSize: '8.5pt', color: '#555', margin: 0 }}>Tel: {hospitalPhone}</p>
+        <div style={{ marginTop: '5px', background: '#8B0000', color: 'white', padding: '3px 0', borderRadius: '3px', fontWeight: 700, fontSize: '11pt', letterSpacing: '1px' }}>
           RECEIPT
         </div>
       </div>
 
       {/* Receipt meta */}
-      <div style={{ borderBottom: '1px dashed #ccc', paddingBottom: '6px', marginBottom: '6px', fontSize: '8.5pt' }}>
+      <div style={{ borderBottom: '1px dashed #ccc', paddingBottom: '5px', marginBottom: '5px', fontSize: '9.5pt' }}>
         <Row label="Receipt #" value={invoice.invoice_number} bold />
         <Row label="Date" value={`${issuedDate}  ${issuedAt}`} />
         <Row label="Patient" value={patientName ?? '—'} bold />
@@ -49,9 +56,9 @@ export function ReceiptPrint({ invoice, patientName, patientMrn }: ReceiptPrintP
       </div>
 
       {/* Items */}
-      <div style={{ borderBottom: '1px dashed #ccc', paddingBottom: '6px', marginBottom: '6px' }}>
+      <div style={{ borderBottom: '1px dashed #ccc', paddingBottom: '5px', marginBottom: '5px' }}>
         {(Array.isArray(invoice.items) ? invoice.items : []).map((item, idx) => (
-          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', fontSize: '8.5pt' }}>
+          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', fontSize: '9.5pt' }}>
             <span style={{ flex: 1, paddingRight: '4px' }}>
               {item.description}
               {item.quantity > 1 && <span style={{ color: '#888' }}> ×{item.quantity}</span>}
@@ -62,14 +69,14 @@ export function ReceiptPrint({ invoice, patientName, patientMrn }: ReceiptPrintP
       </div>
 
       {/* Totals */}
-      <div style={{ borderBottom: '1px dashed #ccc', paddingBottom: '6px', marginBottom: '8px', fontSize: '8.5pt' }}>
+      <div style={{ borderBottom: '1px dashed #ccc', paddingBottom: '5px', marginBottom: '6px', fontSize: '9.5pt' }}>
         {invoice.discount > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#EA580C' }}>
             <span>Discount:</span>
             <span>- {formatCurrency(invoice.discount_type === 'percent' ? (invoice.subtotal * invoice.discount / 100) : invoice.discount)}</span>
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '10.5pt', color: '#8B0000', marginTop: '4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '11pt', color: '#8B0000', marginTop: '3px' }}>
           <span>TOTAL:</span>
           <span>{formatCurrency(invoice.total)}</span>
         </div>
@@ -84,14 +91,14 @@ export function ReceiptPrint({ invoice, patientName, patientMrn }: ReceiptPrintP
           </div>
         )}
         {balance <= 0 && (
-          <div style={{ textAlign: 'center', marginTop: '4px', color: '#16A34A', fontWeight: 700, fontSize: '9.5pt' }}>
+          <div style={{ textAlign: 'center', marginTop: '4px', color: '#16A34A', fontWeight: 700, fontSize: '10pt' }}>
             ✔ FULLY PAID
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#888' }}>
+      <div style={{ textAlign: 'center', fontSize: '8.5pt', color: '#888' }}>
         <p style={{ fontWeight: 600, color: '#8B0000', margin: '0 0 2px' }}>Thank you for choosing Alim Khatoon Medicare</p>
         <p style={{ margin: 0 }}>Tel: {hospitalPhone}</p>
       </div>
