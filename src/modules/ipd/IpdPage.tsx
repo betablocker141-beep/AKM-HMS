@@ -111,7 +111,7 @@ export function IpdPage() {
       async () => {
         const { data, error } = await supabase.from('patients').select('id, name, mrn, dob, gender, phone')
         if (error) throw error
-        return Object.fromEntries((data ?? []).map((p: Patient) => [p.id, p])) as Record<string, Patient>
+        return Object.fromEntries((data ?? []).map((p) => [p.id, p as unknown as Patient])) as Record<string, Patient>
       },
       async () => {
         const all = await db.patients.toArray()
