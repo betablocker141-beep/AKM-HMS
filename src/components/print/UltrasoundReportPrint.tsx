@@ -256,7 +256,7 @@ export function UltrasoundReportPrint({
               }}>
                 {radiologistName ?? ''}
               </div>
-              <p style={{ fontSize: '9pt', color: '#555', margin: 0 }}>Radiologist / Reporting Doctor</p>
+              <p style={{ fontSize: '9pt', color: '#555', margin: 0 }}>Doctor</p>
             </div>
           </div>
 
