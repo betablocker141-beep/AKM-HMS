@@ -143,9 +143,10 @@ export function ErPage() {
   })
 
   const handlePrint = useReactToPrint({
-    contentRef: printRef,
+    content: () => printRef.current,
+    copyStyles: false,
     documentTitle: `ER-Token-${selectedVisit?.token_number}`,
-    pageStyle: `@page { size: 80mm auto !important; margin: 0 !important; } html, body { margin: 0 !important; padding: 0 !important; width: 80mm !important; }`,
+    pageStyle: `@page { size: 80mm auto !important; margin: 0 !important; } html, body { margin: 0 !important; padding: 0 !important; width: 80mm !important; background: #fff !important; }`,
   })
 
   const mutation = useMutation({
